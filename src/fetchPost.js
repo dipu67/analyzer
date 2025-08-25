@@ -33,7 +33,13 @@ async function initializeBrowser(config = {}) {
       "--no-zygote",
       "--disable-gpu",
       "--disable-web-security",
-      "--disable-features=VizDisplayCompositor"
+      "--disable-features=VizDisplayCompositor",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding",
+      "--disable-extensions",
+      "--disable-plugins",
+      "--disable-default-apps"
     ];
 
     const launchOptions = {
