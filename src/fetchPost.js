@@ -55,18 +55,62 @@ async function initializeBrowser(config = {}) {
     } else if (process.env.PLAYWRIGHT_BROWSERS_PATH) {
       console.log('🎭 Using Playwright buildpack browsers:', process.env.PLAYWRIGHT_BROWSERS_PATH);
       // The Playwright buildpack sets up the browser path automatically
-    } else if (process.env.NODE_ENV === 'production') {
-      console.log('🔍 Production environment detected, using default Playwright browser...');
-      // In production on Heroku with Playwright buildpack, browsers should be available
-    }
+      } else if (process.env.NODE_ENV === 'production') {
+        console.log('🔧 Heroku environment detected, checking system...');
+        
+        // Check for system Chrome installations and Playwright
+        try {
+          const { execSync } = await import('child_process');
+          console.log('🔍 Checking for system browsers and Playwright...');
+          
+          const commands = [
+            'which playwright || echo "playwright not found in PATH"',
+            '/app/node_modules/.bin/playwright --version || echo "playwright command failed"',
+            '/app/node_modules/.bin/playwright install --dry-run chromium || echo "playwright install check failed"',
+            'ls -la /app/.cache/ms-playwright/ || echo "no playwright cache directory"',
+            'ls -la /app/.cache/ms-playwright/chromium*/chrome-linux/ || echo "no chrome in playwright cache"',
+            'which chromium-browser 2>/dev/null || echo "chromium-browser not found"',
+            'which google-chrome 2>/dev/null || echo "google-chrome not found"', 
+            'which chromium 2>/dev/null || echo "chromium not found"'
+          ];
+          
+          for (const cmd of commands) {
+            try {
+              const result = execSync(cmd, { encoding: 'utf8', timeout: 10000 });
+              console.log(`📋 ${cmd}:`, result.trim());
+            } catch (e) {
+              console.log(`⚠️ Command failed: ${cmd} - ${e.message}`);
+            }
+          }
+          
+          // Try to manually install Playwright browsers
+          console.log('🎭 Attempting to install Playwright browsers...');
+          try {
+            const installResult = execSync('/app/node_modules/.bin/playwright install chromium', { 
+              encoding: 'utf8', 
+              timeout: 60000 
+            });
+            console.log('✅ Playwright install result:', installResult);
+          } catch (installError) {
+            console.log('❌ Playwright install failed:', installError.message);
+          }
+          
+        } catch (e) {
+          console.log('⚠️ Could not run system checks:', e.message);
+        }
+      }
 
     console.log('🌐 Launching browser with options:', JSON.stringify(launchOptions, null, 2));
     
     try {
+      console.log('🎭 Attempting to launch Chromium with Playwright...');
       const browser = await chromium.launch(launchOptions);
+      console.log('✅ Browser launched successfully!');
+      
       const page = await browser.newPage({
         userAgent: finalConfig.userAgent,
       });
+      console.log('✅ New page created successfully!');
 
       await page.setViewportSize(finalConfig.viewport);
 
@@ -97,11 +141,31 @@ async function initializeBrowser(config = {}) {
     console.log('🔧 Environment details:');
     console.log('- NODE_ENV:', process.env.NODE_ENV);
     console.log('- GOOGLE_CHROME_BIN:', process.env.GOOGLE_CHROME_BIN);
+    console.log('- PLAYWRIGHT_BROWSERS_PATH:', process.env.PLAYWRIGHT_BROWSERS_PATH);
     console.log('- Platform:', process.platform);
+    console.log('- Error stack:', error.stack);
+    
+    // Check if Playwright browsers directory exists
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const playwrightPath = process.env.PLAYWRIGHT_BROWSERS_PATH || '/app/.cache/ms-playwright';
+      console.log('🔍 Checking Playwright browsers at:', playwrightPath);
+      
+      if (fs.existsSync(playwrightPath)) {
+        console.log('📁 Playwright directory exists');
+        const contents = fs.readdirSync(playwrightPath);
+        console.log('📋 Directory contents:', contents);
+      } else {
+        console.log('❌ Playwright directory not found');
+      }
+    } catch (fsError) {
+      console.log('⚠️ Could not check filesystem:', fsError.message);
+    }
     
     // Provide helpful error message for common Heroku issues
     if (error.message.includes('Executable doesn\'t exist') || error.message.includes('ENOENT')) {
-      throw new Error('Browser not available: Chrome/Chromium executable not found. Please ensure the Google Chrome buildpack is properly configured on Heroku.');
+      throw new Error('Browser not available: Playwright browsers not properly installed. The Playwright buildpack may not have completed successfully during deployment.');
     }
     
     throw error;
