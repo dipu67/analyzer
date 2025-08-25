@@ -16,8 +16,7 @@
     "dev-bot": "node --watch telegram-bot/bot.js",
     "dev-web": "node --watch web-ui/frontend.js",
     "dev-all": "node --watch start-all.js",
-    "install-playwright": "npx playwright install",
-    "heroku-postbuild": "echo 'Using runtime browser installation'"
+    "install-playwright": "npx playwright install"
   },
   "keywords": ["twitter", "url-analyzer", "telegram-bot", "web-ui", "ai", "analysis"],
   "author": "",
