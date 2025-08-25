@@ -6,13 +6,49 @@ import fs from 'fs';
 
 dotenv.config();
 
-class AllInOneManager {
-  constructor() {
-    this.processes = new Map();
-    this.isShuttingDown = false;
-  }
+// Check if running on Heroku
+const isHeroku = process.env.NODE_ENV === 'production' || process.env.PORT;
 
-  async start() {
+if (isHeroku) {
+  console.log('🌐 Starting in Production Mode (Heroku)');
+  
+  // Import and start services directly (no child processes)
+  const { AnalyzerBot } = await import('./telegram-bot/bot.js');
+  const { TwitterAnalysisServer } = await import('./web-ui/frontend.js');
+  
+  console.log('🚀 Starting Production Services...\n');
+  
+  // Start web server
+  const webServer = new TwitterAnalysisServer();
+  await webServer.start();
+  
+  // Start telegram bot
+  const telegramBot = new AnalyzerBot();
+  await telegramBot.start();
+  
+  console.log('\n✅ Production services started successfully!');
+  console.log(`📊 Web Server: Running on port ${process.env.PORT}`);
+  console.log(`🤖 Telegram Bot: Running`);
+  
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    console.log('📢 SIGTERM received, shutting down gracefully...');
+    try {
+      await telegramBot.stop();
+      process.exit(0);
+    } catch (error) {
+      console.error('❌ Error during shutdown:', error);
+      process.exit(1);
+    }
+  });
+  
+} else {
+  // Development mode with child processes
+  console.log('🔧 Starting in Development Mode');
+  startDevelopmentMode();
+}
+
+function startDevelopmentMode() {
     console.log('🚀 Starting All-in-One URL Analyzer System\n');
 
     // Check environment

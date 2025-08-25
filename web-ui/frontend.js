@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 export class TwitterAnalysisServer {
   constructor() {
     this.app = express();
-    this.port = process.env.WEB_PORT || 3000;
+    this.port = process.env.PORT || process.env.WEB_PORT || 3000;
     this.db = new Database();
     
     this.setupMiddleware();
@@ -31,17 +31,25 @@ export class TwitterAnalysisServer {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
-    // Session management
-    this.app.use(session({
+    // Session management with production-ready configuration
+    const sessionConfig = {
       secret: process.env.WEB_SESSION_SECRET || 'twitter-analyzer-secret',
       resave: false,
       saveUninitialized: false,
       cookie: { 
-        secure: false,
+        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       }
-    }));
+    };
+
+    // In production, you might want to use a different session store
+    // For now, we'll suppress the warning by acknowledging we know it's for development
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('📝 Using MemoryStore for development (not recommended for production)');
+    }
+
+    this.app.use(session(sessionConfig));
   }
 
   setupRoutes() {
@@ -815,10 +823,18 @@ https://x.com/username/status/456"
 
   async start() {
     await this.initialize();
-    this.app.listen(this.port, () => {
-      console.log(`🌐 Twitter Airdrop Analyzer running on http://localhost:${this.port}`);
+    
+    // Bind to all interfaces in production (Heroku requirement)
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+    
+    this.app.listen(this.port, host, () => {
+      console.log(`🌐 Twitter Airdrop Analyzer running on http://${host}:${this.port}`);
       console.log(`🔐 Admin password: ${process.env.WEB_ADMIN_PASSWORD || 'admin123'}`);
       console.log(`📊 Using database for analysis storage`);
+      
+      if (process.env.NODE_ENV === 'production') {
+        console.log('🚀 Production mode: Ready to handle requests');
+      }
     });
   }
 }
