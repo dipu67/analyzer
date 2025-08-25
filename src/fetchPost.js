@@ -64,39 +64,13 @@ async function initializeBrowser(config = {}) {
       return { browser, page, config: finalConfig };
       
     } catch (launchError) {
+      console.log('❌ Browser launch failed:', launchError.message);
+      
       if (launchError.message.includes('Executable doesn\'t exist')) {
-        console.log('📦 Installing Playwright browsers...');
-        const { execSync } = require('child_process');
-        
-        try {
-          execSync('npx playwright install chromium', { stdio: 'inherit', timeout: 120000 });
-          console.log('✅ Browsers installed, retrying launch...');
-          
-          // Retry after installation
-          const browser = await chromium.launch(launchOptions);
-          const page = await browser.newPage({
-            userAgent: finalConfig.userAgent,
-          });
-
-          await page.setViewportSize(finalConfig.viewport);
-
-          await page.route("**/*", (route) => {
-            const resourceType = route.request().resourceType();
-            if (finalConfig.blockResources.includes(resourceType)) {
-              route.abort();
-            } else {
-              route.continue();
-            }
-          });
-
-          return { browser, page, config: finalConfig };
-        } catch (installError) {
-          console.error('❌ Browser installation failed:', installError.message);
-          throw new Error('Failed to install Playwright browsers. Please check Heroku logs for details.');
-        }
-      } else {
-        throw launchError;
+        throw new Error('Browser not available: Playwright browsers are not installed. This typically happens on Heroku when browsers are not properly installed during deployment. The scraping functionality is currently unavailable.');
       }
+      
+      throw launchError;
     }
   
   } catch (error) {

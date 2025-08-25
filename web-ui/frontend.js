@@ -118,45 +118,90 @@ export class TwitterAnalysisServer {
         }
 
         // Perform analysis
-        const result = await scrapeTweets(urls, DEFAULT_CONFIG);
-        
-        if (!result.success) {
-          throw new Error(result.error || 'Twitter scraping failed');
-        }
+        try {
+          const result = await scrapeTweets(urls, DEFAULT_CONFIG);
+          
+          if (!result.success) {
+            throw new Error(result.error || 'Twitter scraping failed');
+          }
 
-        // Save analysis to database
-        const analysisData = {
-          id: Date.now().toString(),
-          url: urls.join(', '), // Store multiple URLs as comma-separated
-          type: 'twitter-airdrop',
-          status: 'completed',
-          metadata: {
+          // Save analysis to database
+          const analysisData = {
+            id: Date.now().toString(),
+            url: urls.join(', '), // Store multiple URLs as comma-separated
+            type: 'twitter-airdrop',
+            status: 'completed',
+            metadata: {
+              urls: urls,
+              totalPosts: result.totalPosts,
+              created_at: new Date().toISOString()
+            },
+            content: {
+              fullText: result.fullText,
+              success: result.success
+            },
+            aiAnalysis: result.analysis || {}
+          };
+
+          await this.saveTwitterAnalysisToDB(analysisData);
+          
+          // Return response with analysis data
+          const responseData = {
+            id: analysisData.id,
             urls: urls,
-            totalPosts: result.totalPosts,
-            created_at: new Date().toISOString()
-          },
-          content: {
+            type: 'twitter-airdrop',
             fullText: result.fullText,
+            analysis: result.analysis,
+            totalPosts: result.totalPosts,
+            created_at: analysisData.metadata.created_at,
             success: result.success
-          },
-          aiAnalysis: result.analysis || {}
-        };
+          };
+          
+          res.json(responseData);
+          
+        } catch (scrapingError) {
+          // Handle browser/scraping specific errors
+          if (scrapingError.message.includes('Browser not available') || 
+              scrapingError.message.includes('Playwright browsers are not installed')) {
+            
+            // Save error analysis to database for tracking
+            const errorAnalysisData = {
+              id: Date.now().toString(),
+              url: urls.join(', '),
+              type: 'twitter-airdrop',
+              status: 'failed',
+              metadata: {
+                urls: urls,
+                totalPosts: 0,
+                created_at: new Date().toISOString(),
+                error: 'Browser unavailable on Heroku'
+              },
+              content: {
+                fullText: '',
+                success: false,
+                error: scrapingError.message
+              },
+              aiAnalysis: {
+                summary_bangla: 'দুঃখিত, বর্তমানে Heroku-তে ব্রাউজার সাপোর্ট উপলব্ধ নেই। Twitter স্ক্র্যাপিং সেবা সাময়িকভাবে বন্ধ আছে।',
+                has_airdrop_opportunity: false,
+                airdrop_potential: 0,
+                confidence_level: 'high',
+                error_bangla: 'প্রযুক্তিগত সমস্যার কারণে এই মুহূর্তে Twitter বিশ্লেষণ করা সম্ভব নয়।'
+              }
+            };
 
-        await this.saveTwitterAnalysisToDB(analysisData);
-        
-        // Return response with analysis data
-        const responseData = {
-          id: analysisData.id,
-          urls: urls,
-          type: 'twitter-airdrop',
-          fullText: result.fullText,
-          analysis: result.analysis,
-          totalPosts: result.totalPosts,
-          created_at: analysisData.metadata.created_at,
-          success: result.success
-        };
-        
-        res.json(responseData);
+            await this.saveTwitterAnalysisToDB(errorAnalysisData);
+            
+            res.status(503).json({ 
+              error: 'Twitter scraping service temporarily unavailable on Heroku. Browser support is not currently installed.',
+              error_bangla: 'Heroku-তে Twitter স্ক্র্যাপিং সেবা সাময়িকভাবে অনুপলব্ধ। ব্রাউজার সাপোর্ট বর্তমানে ইনস্টল করা নেই।',
+              id: errorAnalysisData.id,
+              success: false
+            });
+          } else {
+            throw scrapingError;
+          }
+        }
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
