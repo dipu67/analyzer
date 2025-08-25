@@ -52,27 +52,12 @@ async function initializeBrowser(config = {}) {
       console.log('🔧 Using Chrome from buildpack:', process.env.GOOGLE_CHROME_BIN);
       launchOptions.executablePath = process.env.GOOGLE_CHROME_BIN;
       launchOptions.channel = undefined; // Don't use Playwright's bundled browser
+    } else if (process.env.PLAYWRIGHT_BROWSERS_PATH) {
+      console.log('🎭 Using Playwright buildpack browsers:', process.env.PLAYWRIGHT_BROWSERS_PATH);
+      // The Playwright buildpack sets up the browser path automatically
     } else if (process.env.NODE_ENV === 'production') {
-      console.log('🔍 Searching for system Chrome on Heroku...');
-      // Common Chrome locations on Linux systems
-      const chromePaths = [
-        '/usr/bin/google-chrome-stable',
-        '/usr/bin/google-chrome',
-        '/usr/bin/chromium-browser',
-        '/usr/bin/chromium'
-      ];
-      
-      for (const chromePath of chromePaths) {
-        try {
-          const { execSync } = await import('child_process');
-          execSync(`test -f ${chromePath}`, { stdio: 'ignore' });
-          console.log('✅ Found Chrome at:', chromePath);
-          launchOptions.executablePath = chromePath;
-          break;
-        } catch (e) {
-          // Chrome not found at this path, continue searching
-        }
-      }
+      console.log('🔍 Production environment detected, using default Playwright browser...');
+      // In production on Heroku with Playwright buildpack, browsers should be available
     }
 
     console.log('🌐 Launching browser with options:', JSON.stringify(launchOptions, null, 2));
