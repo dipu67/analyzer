@@ -1,0 +1,39 @@
+{
+  "name": "twitter-analyzer-bot",
+  "version": "2.0.0",
+  "description": "Advanced Twitter/URL analyzer with Telegram bot and password-protected web UI",
+  "main": "src/analyzer.js",
+  "type": "module",
+  "scripts": {
+    "start": "node start-all.js",
+    "start-all": "node start-all.js",
+    "all": "node start-all.js",
+    "production": "node start-production.js",
+    "prod": "node start-production.js",
+    "bot": "node telegram-bot/bot.js",
+    "web": "node web-ui/server.js",
+    "dev-bot": "node --watch telegram-bot/bot.js",
+    "dev-web": "node --watch web-ui/server.js",
+    "dev-all": "node --watch start-all.js",
+    "install-playwright": "npx playwright install"
+  },
+  "keywords": ["twitter", "url-analyzer", "telegram-bot", "web-ui", "ai", "analysis"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "telegraf": "^4.15.0",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "bcrypt": "^5.1.1",
+    "sqlite3": "^5.1.6",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
