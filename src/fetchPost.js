@@ -32,57 +32,75 @@ async function initializeBrowser(config = {}) {
       "--no-first-run",
       "--no-zygote",
       "--disable-gpu",
+      "--disable-web-security",
+      "--disable-features=VizDisplayCompositor"
     ];
 
-    // Add additional args for Heroku production environment
-    if (process.env.NODE_ENV === 'production') {
-      browserArgs.push(
-        "--single-process",
-        "--disable-features=VizDisplayCompositor",
-        "--disable-background-timer-throttling",
-        "--disable-renderer-backgrounding"
-      );
-    }
-
     const launchOptions = {
-      headless: finalConfig.headless,
+      headless: true, // Always use headless on Heroku
       args: browserArgs,
     };
 
-    // Use system Chromium on Heroku if available
-    if (process.env.GOOGLE_CHROME_BIN) {
-      launchOptions.executablePath = process.env.GOOGLE_CHROME_BIN;
-    }
-
     console.log('🌐 Launching browser for Twitter scraping...');
-    const browser = await chromium.launch(launchOptions);
+    
+    try {
+      const browser = await chromium.launch(launchOptions);
+      const page = await browser.newPage({
+        userAgent: finalConfig.userAgent,
+      });
 
-    const page = await browser.newPage({
-      userAgent: finalConfig.userAgent,
-    });
+      await page.setViewportSize(finalConfig.viewport);
 
-  await page.setViewportSize(finalConfig.viewport);
+      // Block unnecessary resources to improve performance
+      await page.route("**/*", (route) => {
+        const resourceType = route.request().resourceType();
+        if (finalConfig.blockResources.includes(resourceType)) {
+          route.abort();
+        } else {
+          route.continue();
+        }
+      });
 
-  // Block unnecessary resources to improve performance
-  await page.route("**/*", (route) => {
-    const resourceType = route.request().resourceType();
-    if (finalConfig.blockResources.includes(resourceType)) {
-      route.abort();
-    } else {
-      route.continue();
+      return { browser, page, config: finalConfig };
+      
+    } catch (launchError) {
+      if (launchError.message.includes('Executable doesn\'t exist')) {
+        console.log('📦 Installing Playwright browsers...');
+        const { execSync } = require('child_process');
+        
+        try {
+          execSync('npx playwright install chromium', { stdio: 'inherit', timeout: 120000 });
+          console.log('✅ Browsers installed, retrying launch...');
+          
+          // Retry after installation
+          const browser = await chromium.launch(launchOptions);
+          const page = await browser.newPage({
+            userAgent: finalConfig.userAgent,
+          });
+
+          await page.setViewportSize(finalConfig.viewport);
+
+          await page.route("**/*", (route) => {
+            const resourceType = route.request().resourceType();
+            if (finalConfig.blockResources.includes(resourceType)) {
+              route.abort();
+            } else {
+              route.continue();
+            }
+          });
+
+          return { browser, page, config: finalConfig };
+        } catch (installError) {
+          console.error('❌ Browser installation failed:', installError.message);
+          throw new Error('Failed to install Playwright browsers. Please check Heroku logs for details.');
+        }
+      } else {
+        throw launchError;
+      }
     }
-  });
-
-  return { browser, page, config: finalConfig };
   
   } catch (error) {
     console.error('❌ Failed to initialize browser:', error.message);
-    
-    // Provide helpful error message for common Heroku issues
-    if (error.message.includes('Executable doesn\'t exist')) {
-      throw new Error('Browser executable not found. Please ensure Playwright browsers are installed. On Heroku, this should be handled by the heroku-postbuild script.');
-    }
-    
     throw error;
   }
 }

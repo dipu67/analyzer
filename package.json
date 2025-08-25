@@ -17,7 +17,7 @@
     "dev-web": "node --watch web-ui/frontend.js",
     "dev-all": "node --watch start-all.js",
     "install-playwright": "npx playwright install",
-    "heroku-postbuild": "npx playwright install --with-deps chromium"
+    "heroku-postbuild": "echo 'Using runtime browser installation'"
   },
   "keywords": ["twitter", "url-analyzer", "telegram-bot", "web-ui", "ai", "analysis"],
   "author": "",
@@ -37,5 +37,9 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
