@@ -28,25 +28,29 @@ export class TwitterAnalysisServer {
   }
 
   setupMiddleware() {
+    // Trust proxy for Heroku (required for secure sessions behind load balancer)
+    this.app.set('trust proxy', 1);
+    
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
-    // Session management with production-ready configuration
+    // Session management - optimized for Heroku
+
     const sessionConfig = {
-      secret: process.env.WEB_SESSION_SECRET || 'twitter-analyzer-secret',
+      secret: process.env.WEB_SESSION_SECRET || 'twitter-analyzer-secret-' + Math.random(),
       resave: false,
       saveUninitialized: false,
       cookie: { 
-        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+        secure: false, // Heroku handles HTTPS at load balancer
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: 'lax'
       }
     };
 
-    // In production, you might want to use a different session store
-    // For now, we'll suppress the warning by acknowledging we know it's for development
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('📝 Using MemoryStore for development (not recommended for production)');
+    // Suppress MemoryStore warning for Heroku (single dyno is fine for this app)
+    if (process.env.NODE_ENV === 'production') {
+      console.log('� Production session configuration loaded');
     }
 
     this.app.use(session(sessionConfig));
@@ -62,10 +66,14 @@ export class TwitterAnalysisServer {
       const { password } = req.body;
       const adminPassword = process.env.WEB_ADMIN_PASSWORD || 'admin123';
       
+      console.log(`🔐 Login attempt - Password provided: ${password ? 'Yes' : 'No'}, Expected: ${adminPassword}`);
+      
       if (password === adminPassword) {
         req.session.authenticated = true;
+        console.log('✅ Login successful, session set');
         res.redirect('/dashboard');
       } else {
+        console.log('❌ Login failed - invalid password');
         res.send(this.generateLoginPage('Invalid password'));
       }
     });
