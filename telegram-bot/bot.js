@@ -1,4 +1,4 @@
-import { Telegraf, Markup } from 'telegraf';
+import { Telegraf} from 'telegraf';
 import dotenv from 'dotenv';
 import Database from '../database/database.js';
 import crypto from 'crypto';

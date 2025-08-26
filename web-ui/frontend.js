@@ -1,7 +1,6 @@
 import express from 'express';
 import session from 'express-session';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { scrapeTweets, DEFAULT_CONFIG } from '../src/fetchPost.js';
 import Database from '../database/database.js';
